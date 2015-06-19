@@ -166,25 +166,34 @@ Ext.define('CustomApp', {
 
         var aggregate_data = this._aggregateData(records);
 
-        this._buildGridView(aggregate_data);
+        var grid_ct = this.down('#display_box').add({
+            xtype: 'container',
+            flex: 1
+        });
 
-        this._buildChart(aggregate_data);
-    },
-    _buildChart: function(aggregate_data){
-
-        var ct = this.down('#display_box').add({
+        var chart_ct = this.down('#display_box').add({
             xtype: 'container',
             flex: 2
         });
 
-        var colors = [];
+        this._buildChart(chart_ct, aggregate_data);
+
+        this._buildGridView(grid_ct, aggregate_data);
+
+//        chart_ct.setSize(grid_ct.getWidth(), grid_ct.getHeight() * 0.95);
+
+    },
+    _buildChart: function(chart_ct, aggregate_data){
+
+       var colors = [];
         _.each(this.riskMapping, function(rm){
             colors.push(rm.color);
         });
 
-        var chart = ct.add({
+        var chart = chart_ct.add({
             xtype: 'rallychart',
             itemId: 'rally-chart',
+            loadMask: false,
             chartConfig: this._getChartConfig(),
             chartData: this._getChartData(aggregate_data),
             chartColors: colors
@@ -194,15 +203,15 @@ Ext.define('CustomApp', {
     _getChartData: function(aggregate_data){
 
         var categories = _.keys(aggregate_data),
-            riskCategories = [],
+            riskCategories = this.riskMapping,
             series = [];
 
-        _.each(this.riskMapping, function(riskMap){
-            riskCategories.push(riskMap);
-        });
-console.log('riskCategories', riskCategories);
         for (var j = 0; j < riskCategories.length; j++) {
-            var series_obj = {name: riskCategories[j].name, data: [], color: riskCategories[j].color};
+            var series_obj = {
+                name: riskCategories[j].name,
+                data: [],
+                color: riskCategories[j].color
+            };
             for (var i = 0; i < categories.length; i++) {
                 series_obj.data.push(aggregate_data[categories[i]][riskCategories[j].name].length);
             }
@@ -246,16 +255,13 @@ console.log('riskCategories', riskCategories);
                     stacking: 'normal',
                     dataLabels: {
                         enabled: true,
-                        color: 'white',
-                        style: {
-                            textShadow: '0 0 3px black'
-                        }
+                        color: 'white'
                     }
                 }
             }
         };
     },
-    _buildGridView: function(aggregate_data){
+    _buildGridView: function(ct_grid, aggregate_data){
         console.log('_buildGridView', aggregate_data);
 
         var items = [];
@@ -303,8 +309,6 @@ console.log('riskCategories', riskCategories);
 
         var pnl = Ext.create('Ext.panel.Panel', {
             flex: 1,
-           // width: 300,
-           // height: 300,
             defaults: {
                 // applied to each contained panel
                 bodyStyle: 'padding:15px'
@@ -318,7 +322,7 @@ console.log('riskCategories', riskCategories);
             },
             items: items
         });
-        this.down('#display_box').add(pnl);
+        ct_grid.add(pnl);
 
     },
     _aggregateData: function(records){
@@ -363,16 +367,6 @@ console.log('riskCategories', riskCategories);
             return this.childProjectHash[project_category_oid];
     },
     _getRiskCategory: function(rec, riskField){
-        //var risk = rec.get(riskField) || 0;
-        //
-        //if (risk <= 10){
-        //    return 'R1';
-        //}
-        //
-        //if (risk <= 20){
-        //    return 'R2';
-        //}
-        //return 'R3';
 //#  Inputs:
 //#    percentComplete (real)
 //#    startDate (days since the epoch or date type where
@@ -427,7 +421,6 @@ console.log('riskCategories', riskCategories);
             warningDelay = deltaDays * 0.2,
             inProgress = percentComplete > 0;
 
-        console.log('getRiskCategory', startDate, endDate, percentComplete);
 
         if (new Date() < startDate){
             return 'Not Started';
@@ -451,6 +444,9 @@ console.log('riskCategories', riskCategories);
             redSlope = 100.0 / (endDay - redXIntercept),
             redYIntercept = -1.0 * redXIntercept * redSlope,
             redThreshold = redSlope * asOfDay + redYIntercept;
+
+        console.log('getRiskCategory red', rec.get('FormattedID'),percentComplete, redThreshold, startDate, endDate, percentComplete, redXIntercept, redSlope, redYIntercept, redThreshold);
+
         if (percentComplete < redThreshold){
             return 'R3';
         }
@@ -459,6 +455,8 @@ console.log('riskCategories', riskCategories);
             yellowSlope = 100 / (endDay - yellowXIntercept),
             yellowYIntercept = -1.0 * yellowXIntercept * yellowSlope,
             yellowThreshold = yellowSlope * asOfDay + yellowYIntercept;
+
+        console.log('getRiskCategory yellow', rec.get('FormattedID'), percentComplete, yellowThreshold, startDate, endDate, yellowXIntercept, yellowSlope, yellowYIntercept);
 
         if (percentComplete < yellowThreshold){
             return 'R2';
