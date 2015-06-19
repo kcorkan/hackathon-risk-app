@@ -1,3 +1,5 @@
+
+
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -8,7 +10,7 @@ Ext.define('CustomApp', {
     ],
     aggregateNumberField: 'ValueScore',
     modelType: 'PortfolioItem/Feature',
-    featureFetchFields: ['FormattedID','Name','State', '_ProjectHierarchy','PercentDoneByStoryCount', 'PlannedStartDate','PlannedEndDate','ActualStartDate','ActualEndDate'],
+    featureFetchFields: ['ObjectID','FormattedID','Name','State', '_ProjectHierarchy','PercentDoneByStoryCount', 'PlannedStartDate','PlannedEndDate','ActualStartDate','ActualEndDate'],
 
     modelObject: undefined,
     riskMapping: [{
@@ -313,11 +315,18 @@ Ext.define('CustomApp', {
                         header: {
                             cls: this._getRiskCategoryClass(riskCategory)
                         },
+                        defaults: {
+                            bodyStyle: 'padding:5px'
+                        },
                         items: [{
                             xtype: 'rallygrid',
                             store: risk_store,
                             columnCfgs: [{
-                                dataIndex: 'FormattedID', text: 'Formatted ID'
+                                dataIndex: 'FormattedID',
+                                text: 'Formatted ID',
+                                renderer: function(v,m,r){
+                                    return Rally.nav.DetailLink.getLink({record: '/portfolioitem/feature/' + r.get('ObjectID'), text: v});
+                                }
                             }, {
                                 dataIndex: 'Name', text: 'Name', flex: 1
                             }],
