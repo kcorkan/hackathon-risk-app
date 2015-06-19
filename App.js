@@ -331,7 +331,8 @@ Ext.define('CustomApp', {
                                 dataIndex: 'Name', text: 'Name', flex: 1
                             }],
                             showPagingToolbar: false,
-                            showRowActionsColumn: false
+                            showRowActionsColumn: false,
+                            scroll: false
                         }]
                     });
                 }
