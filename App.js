@@ -346,7 +346,7 @@ Ext.define('CustomApp', {
                 flex: 1,
                 itemId: this._getProjectItemId(proj),
                 defaults: {
-                    bodyStyle: 'padding:15px'
+                    bodyStyle: 'padding:5px'
                 },
                 layout: {
                     type: 'accordion',

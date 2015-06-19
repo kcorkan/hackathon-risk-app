@@ -2,18 +2,53 @@
 }
 .r1 {
     background-color: #8DC63F!important;
+    color: #FFFFFF;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    text-transform: uppercase;
+    font-size: 12px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-radius: 3px;
 }
 .r2 {
     background-color: #FAD200!important;
+    color: #FFFFFF;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    text-transform: uppercase;
+    font-size: 12px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-radius: 3px;
 }
 .r3 {
     background-color:#F66349!important;
+    color: #FFFFFF;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    text-transform: uppercase;
+    font-size: 12px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-radius: 3px;
 }
 .done {
-    background-color: #888!important;
+    background-color: #3F86C9!important;
+    color: #FFFFFF;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    text-transform: uppercase;
+    font-size: 12px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    border-radius: 3px;
 }
 .notstarted {
-    background-color: #3f86c9!important;
+    background-color: #888!important;
+    color: #FFFFFF;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    text-transform: uppercase;
+    font-size: 12px;
+    margin-top: 2px;
+    border-radius: 3px;
+    margin-bottom: 2px;
 }
 .project {
     background-color: #f6f6f6;
