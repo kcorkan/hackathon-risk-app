@@ -17,16 +17,18 @@
     ],
     aggregateNumberField: 'ValueScore',
     modelType: 'PortfolioItem/Feature',
+    featureFetchFields: ['FormattedID','Name','State', '_ProjectHierarchy','PercentDoneByStoryCount', 'PlannedStartDate','PlannedEndDate','ActualStartDate','ActualEndDate'],
+
     modelObject: undefined,
     riskMapping: [{
         name: 'R3',
-        color: '#FF0000'
+        color: '#F66349'
     },{
         name: 'R2',
-        color: '#EE6C19'
+        color: '#FAD200'//'#EE6C19'
     },{
         name: 'R1',
-        color: '#FAD200'
+        color: '#8DC63F'
     },{
         name: 'Not Started',
         color: '#F6F6F6'
@@ -138,8 +140,8 @@
         });
     },
     _fetchData: function(releases){
-        var model_name = 'PortfolioItem/Feature',
-            field_names = ['FormattedID','Name','State', '_ProjectHierarchy'].concat([this.aggregateNumberField]),
+        var model_name = this.modelType,
+            field_names = this.featureFetchFields,
             release_oids = _.map(releases, function(rel){ return rel.get('ObjectID');});
 
         this.setLoading(true);
@@ -412,32 +414,29 @@ console.log('riskCategories', riskCategories);
 
         var startDate = new Date(),
             percentComplete = 100 * rec.get('PercentDoneByStoryCount');
+
         if (rec.get('ActualStartDate')) {
-            startDate = rec.get('ActualStartDate');
+            startDate = Rally.util.DateTime.fromIsoString(rec.get('ActualStartDate'));
         }
         else if (rec.get('PlannedStartDate')) {
-            startDate = rec.get('PlannedStartDate');
+            startDate = Rally.util.DateTime.fromIsoString(rec.get('PlannedStartDate'));
         }
 
         var endDate = new Date();
-        if (percentComplete == 100) {
-            if (rec.get('ActualEndDate')) {
-                endDate = rec.get('ActualEndDate');
-            }
-            else if (rec.get('PlannedEndDate')) {
-                endDate = rec.get('PlannedEndDate');
-            }
+        if (percentComplete == 100 && rec.get('ActualEndDate')) {
+            endDate = Rally.util.DateTime.fromIsoString(rec.get('ActualEndDate'));
         } else {
             if (rec.get('PlannedEndDate')){
-                endDate = rec.get('PlannedEndDate');
+                endDate = Rally.util.DateTime.fromIsoString(rec.get('PlannedEndDate'));
             }
         }
 
-//# Defaults below currently hard-coded. Could later be provided by user.
         var deltaDays = Rally.util.DateTime.getDifference(endDate,startDate,'day'),
             acceptanceStartDelay = deltaDays * 0.2,
             warningDelay = deltaDays * 0.2,
             inProgress = percentComplete > 0;
+
+        console.log('getRiskCategory', startDate, endDate, percentComplete);
 
         if (new Date() < startDate){
             return 'Not Started';
