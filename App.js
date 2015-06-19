@@ -173,15 +173,11 @@ Ext.define('CustomApp', {
 
         var chart_ct = this.down('#display_box').add({
             xtype: 'container',
-            flex: 2
+            flex: 2 // flex = 2 makes the chart container wider than the grid
         });
 
         this._buildChart(chart_ct, aggregate_data);
-
         this._buildGridView(grid_ct, aggregate_data);
-
-//        chart_ct.setSize(grid_ct.getWidth(), grid_ct.getHeight() * 0.95);
-
     },
     _buildChart: function(chart_ct, aggregate_data){
 
@@ -224,6 +220,7 @@ Ext.define('CustomApp', {
         };
     },
     _getChartConfig: function(){
+        var me = this;
 
         return {
             chart: {
@@ -256,10 +253,27 @@ Ext.define('CustomApp', {
                     dataLabels: {
                         enabled: true,
                         color: 'white'
+                    },
+                    point: {
+                        events: {
+                            click: function(evt) {
+
+                                me._onPointSelected(evt, me);
+                            }
+                        }
                     }
                 }
             }
         };
+    },
+    _onPointSelected: function(evt, thisApp){
+        var point = evt.currentTarget;
+        console.log('click', evt, point, point.category, point.series.name, thisApp, thisApp._getRiskCategoryItemId(point.category, point.series.name));
+
+        thisApp.down('#' + thisApp._getProjectItemId(point.category)).expand();
+        thisApp.down('#' + thisApp._getRiskCategoryItemId(point.category, point.series.name)).expand();
+
+
     },
     _buildGridView: function(ct_grid, aggregate_data){
         console.log('_buildGridView', aggregate_data);
@@ -277,6 +291,7 @@ Ext.define('CustomApp', {
 
                 risk_items.push({
                     title: riskCategory + ' (' + records.length + ')',
+                    itemId: this._getRiskCategoryItemId(proj, riskCategory),
                     items: [{
                         xtype: 'rallygrid',
                         store: risk_store,
@@ -294,6 +309,7 @@ Ext.define('CustomApp', {
             var risk_pnl = Ext.create('Ext.panel.Panel',{
                 title: proj,
                 flex: 1,
+                itemId: this._getProjectItemId(proj),
                 defaults: {
                     bodyStyle: 'padding:15px'
                 },
@@ -324,6 +340,12 @@ Ext.define('CustomApp', {
         });
         ct_grid.add(pnl);
 
+    },
+    _getRiskCategoryItemId: function(project, risk){
+        return (project + '-' + risk).replace(/\s/g,'');
+    },
+    _getProjectItemId: function(project){
+        return project.replace(/\s/g,'');
     },
     _aggregateData: function(records){
         var aggregate_data = {},
