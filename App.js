@@ -7,6 +7,8 @@ Ext.define('CustomApp', {
         {xtype:'container',itemId:'display_box', layout: {type: 'hbox'}}
     ],
     aggregateNumberField: 'ValueScore',
+    modelType: 'PortfolioItem/Feature',
+    modelObject: undefined,
     riskMapping: [{
         name: 'R1',
         color: '#FAD200',
@@ -22,10 +24,13 @@ Ext.define('CustomApp', {
     }],
 
     launch: function() {
-        this._fetchChildProjects().then({
+        var promises = [this._fetchModel(),this._fetchChildProjects()];
+        Deft.Promise.all(promises).then({
             scope: this,
-            success: function(projectHash){
-                this.childProjectHash = projectHash;
+            success: function(results){
+                console.log('model', results);
+                this.modelObject = results[0];
+                this.childProjectHash = results[1];
                 this._addSelectorComponents();
             },
             failure: function(operation){
@@ -33,6 +38,17 @@ Ext.define('CustomApp', {
             }
         });
 
+    },
+    _fetchModel: function(){
+        var deferred = Ext.create('Deft.Deferred');
+
+        Rally.data.ModelFactory.getModel({
+            type: this.modelType,
+            success: function(model) {
+                deferred.resolve(model);
+            }
+        });
+        return deferred;
     },
     _fetchReleases: function(cb){
         var deferred = Ext.create('Deft.Deferred'),
@@ -230,36 +246,41 @@ Ext.define('CustomApp', {
     _buildGridView: function(aggregate_data){
         console.log('_buildGridView', aggregate_data);
 
-        var items = [];
+        var items = [],
+            me = this,
+            model = this.model;
         _.each(aggregate_data, function(obj, proj){
             var risk_items = [];
             _.each(obj, function(records, riskCategory){
-                var html = 'No Data';
-                if (records.length > 0){
-                    var rec_array = _.map(records, function(r){return r.get('FormattedID') + ': ' + r.get('Name');});
-                    console.log('rec_array', rec_array);
 
-                    //var t = new Ext.Template('<tpl for="."><b>{[rec.get("FormattedID)]} : {Name}</b></tpl>');
-                    //html = t.apply(records);
-                    html = rec_array.join('<br/>');
-                }
+                var risk_store = Ext.create('Rally.data.custom.Store',{
+                    pageSize: records.length,
+                    data: records
+                });
 
                 risk_items.push({
                     title: riskCategory + ' (' + records.length + ')',
-                    html: html
+                    items: [{
+                        xtype: 'rallygrid',
+                        store: risk_store,
+                        columnCfgs: [{
+                            dataIndex: 'FormattedID', text: 'Formatted ID'
+                        },{
+                            dataIndex: 'Name', text: 'Name', flex: 1
+                        }],
+                        showPagingToolbar: false,
+                        showRowActionsColumn: false
+                    }]
                 });
             }, this);
 
             var risk_pnl = Ext.create('Ext.panel.Panel',{
                 title: proj,
-             //   width: 300,
-             //   height: 300,
+                flex: 1,
                 defaults: {
-                    // applied to each contained panel
                     bodyStyle: 'padding:15px'
                 },
                 layout: {
-                    // layout-specific configs go here
                     type: 'accordion',
                     titleCollapse: false,
                     animate: true
@@ -288,6 +309,18 @@ Ext.define('CustomApp', {
         });
         this.down('#display_box').add(pnl);
 
+    },
+    _magicRenderer: function(field,value,meta_data,record){
+        var field_name = field.name || field.get('name');
+      //  var model = this.model;
+        // will fail fi field is not on the record
+        // (e.g., we pick accepted date, by are also showing features
+        try {
+            var template = Rally.ui.renderer.RendererFactory.getRenderTemplate(model.getField(field_name)) || "";
+            return template.apply(record.data);
+        } catch(e) {
+            return ".";
+        }
     },
     _aggregateData: function(records){
         var aggregate_data = {};
