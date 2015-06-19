@@ -22,18 +22,16 @@ Ext.define('CustomApp', {
     }],
 
     launch: function() {
-
-        this._fetchProjects().then({
+        this._fetchChildProjects().then({
             scope: this,
-            success: function(projects){
-                this.projectTree = this._getProjectTree(projects, this.getContext().getProject().ObjectID);
+            success: function(projectHash){
+                this.childProjectHash = projectHash;
                 this._addSelectorComponents();
             },
             failure: function(operation){
-                Rally.ui.notify.Notifier.showError({message: 'Error getting Project Tree: ' + operation.error.errors.join(',')});
+                Rally.ui.notify.Notifier.showError('Error retrieving child projects: ' + operation.error.errors.join(','));
             }
         });
-
 
     },
     _fetchReleases: function(cb){
@@ -53,33 +51,39 @@ Ext.define('CustomApp', {
             scope: this,
             callback: function(records, operation, success){
                if (success) {
-                   deferred.resolve(records);
+                   console.log('release records', records);
+                   this._fetchData(records);
                } else {
-                   deferred.reject(operation);
+                   Rally.ui.notify.Notifier.showError({message: 'Error getting Releases: ' + operation.error.errors.join(',')});
+
                }
             }
         });
         return deferred;  
     },
-    _fetchProjects: function(){
+    _fetchChildProjects: function(){
         var deferred = Ext.create('Deft.Deferred');
         
         var store = Ext.create('Rally.data.wsapi.Store',{
             model: 'Project',
-            fetch: ['Name','Parent','ObjectID'],
-            limit: Infinity,
-            context: {
-                project: this.getContext().getProject()._ref,
-                projectScopeDown: true,
-                projectScopeUp: false
-            }
+            fetch: ['Name','ObjectID'],
+            filters: [{
+                property: 'Parent.ObjectID',
+                value: this.getContext().getProject().ObjectID
+            }],
+            limit: Infinity
         });
         
         store.load({
             scope: this,
             callback: function(records, operation, success){
                 if (success){
-                    deferred.resolve(records);
+                    var projectHash = {};
+                    _.each(records, function(r){
+                        projectHash[r.get('ObjectID')] = r.get('Name');
+                    });
+
+                    deferred.resolve(projectHash);
                 } else {
                     deferred.reject(operation);
                 }
@@ -101,30 +105,32 @@ Ext.define('CustomApp', {
             width: 300,
             listeners: {
                 scope: this,
-                change: this._fetchData
+                change: this._fetchReleases
             }
         });
     },
-    _fetchData: function(cb){
+    _fetchData: function(releases){
         var model_name = 'PortfolioItem/Feature',
-            field_names = ['FormattedID','Name','Project','State'].concat([this.aggregateNumberField]);
-        this.setLoading(true);
-        var filters = [{
-            property: 'Release.Name',
-            value: cb.getRecord().get('Name')
-        }];
+            field_names = ['FormattedID','Name','State', '_ProjectHierarchy'].concat([this.aggregateNumberField]),
+            release_oids = _.map(releases, function(rel){ return rel.get('ObjectID');});
 
-        var store = Ext.create('Rally.data.wsapi.Store',{
-            model: model_name,
+        this.setLoading(true);
+
+        var store = Ext.create('Rally.data.lookback.SnapshotStore',{
             fetch: field_names,
-            filters: filters,
-            limit: Infinity
+            find: {
+                '_TypeHierarchy': model_name,
+                '_ProjectHierarchy': this.getContext().getProject().ObjectID,
+                'Release': {$in: release_oids},
+                '__At': "current"
+            }
         });
-        
+
         store.load({
             scope: this,
             callback: function(records, operation, success){
                 if (success){
+                    console.log('records', records);
                     this._buildGridAndChart(records);
                     this.setLoading(false);
                 } else {
@@ -137,7 +143,7 @@ Ext.define('CustomApp', {
     _buildGridAndChart: function(records){
         this.down('#display_box').removeAll();
 
-        var aggregate_data = this._aggregateData(records, this.projectTree);
+        var aggregate_data = this._aggregateData(records);
 
         this._buildGridView(aggregate_data);
 
@@ -283,11 +289,12 @@ Ext.define('CustomApp', {
         this.down('#display_box').add(pnl);
 
     },
-    _aggregateData: function(records, projectTree){
+    _aggregateData: function(records){
         var aggregate_data = {};
+        console.log('child project hash', this.childProjectHash);
 
         _.each(records, function(rec){
-            var proj = this._getProjectCategory(rec, this.projectTree),
+            var proj = this._getProjectCategory(rec),
                 risk_category = this._getRiskCategory(rec, this.aggregateNumberField);
 
             console.log('project', rec.get('Project').Name, proj, this.projectTree);
@@ -299,21 +306,21 @@ Ext.define('CustomApp', {
         }, this);
         return aggregate_data;
     },
-    _getProjectCategory: function(rec, projectTree){
-        var project_name = rec.get('Project').Name,
-            project_category = 'unknown';
-        
-        if (project_name == projectTree.get('Name')){
-            return project_name;
-        }  
-        
-        _.each(projectTree.get('Children'), function(child){
-            if (this._isInProjectHierarchy(child, project_name)){
-                project_category = child.get('Name');
+    _getProjectCategory: function(rec){
+        var project_hierarchy = rec.get('_ProjectHierarchy'),
+            current_project_idx = _.indexOf(project_hierarchy, this.getContext().getProject().ObjectID);
+            console.log('proj hierarchy', project_hierarchy, current_project_idx);
+            if (current_project_idx < 0){
+                return 'Unknown';
             }
-        }, this);
-        console.log('cateory', project_category);
-        return project_category;  
+
+            if (this.getContext().getProject().ObjectID == project_hierarchy.slice(-1)[0]){
+                return this.getContext().getProject().Name;
+            }
+
+            //Project Hierarchy is like this:  [P0, P1, P2, P3] where P3 is the project that the item is in
+            var project_category_oid = project_hierarchy[current_project_idx + 1];
+            return this.childProjectHash[project_category_oid];
     },
     _isInProjectHierarchy: function(project, project_name){
         var isInProjectHierarchy = false; 
