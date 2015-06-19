@@ -13,19 +13,24 @@ Ext.define('CustomApp', {
     modelObject: undefined,
     riskMapping: [{
         name: 'R3',
-        color: '#F66349'
+        color: '#F66349',
+        cls: 'r3'
     },{
         name: 'R2',
-        color: '#FAD200'//'#EE6C19'
+        color: '#FAD200',
+        cls: 'r2'
     },{
         name: 'R1',
-        color: '#8DC63F'
+        color: '#8DC63F',
+        cls: 'r1'
     },{
         name: 'Not Started',
-        color: '#F6F6F6'
+        color: '#888',
+        cls: 'notstarted'
     },{
         name: 'Done',
-        color: '#3F86C9'
+        color: '#3F86C9',
+        cls: 'done'
     }],
 
     launch: function() {
@@ -227,13 +232,14 @@ Ext.define('CustomApp', {
                 type: 'column'
             },
             title: {
-                text: 'Risk'
+                text: 'Features by Risk Category',
+                align: 'left'
             },
             legend: {
                 align: 'right',
-                x: -30,
+                //x: -30,
                 verticalAlign: 'top',
-                y: 25,
+                //y: 25,
                 floating: true,
                 backgroundColor:  'white',
                 borderColor: '#CCC',
@@ -247,17 +253,29 @@ Ext.define('CustomApp', {
                         'Total: ' + this.point.stackTotal;
                 }
             },
+            yAxis: {
+                title: {text: '# Features'}
+            },
+            xAxis: {
+                title: {text: 'Projects'}
+            },
             plotOptions: {
+
                 column: {
                     stacking: 'normal',
                     dataLabels: {
                         enabled: true,
-                        color: 'white'
+                        color: 'white',
+                        formatter: function(){
+                            if (this.y <= 0){
+                                return '';
+                            }
+                            return this.y;
+                        }
                     },
                     point: {
                         events: {
                             click: function(evt) {
-
                                 me._onPointSelected(evt, me);
                             }
                         }
@@ -283,31 +301,39 @@ Ext.define('CustomApp', {
         _.each(aggregate_data, function(obj, proj){
             var risk_items = [];
             _.each(obj, function(records, riskCategory){
+                if (records.length > 0) {
+                    var risk_store = Ext.create('Rally.data.custom.Store', {
+                        pageSize: records.length,
+                        data: records
+                    });
 
-                var risk_store = Ext.create('Rally.data.custom.Store',{
-                    pageSize: records.length,
-                    data: records
-                });
-
-                risk_items.push({
-                    title: riskCategory + ' (' + records.length + ')',
-                    itemId: this._getRiskCategoryItemId(proj, riskCategory),
-                    items: [{
-                        xtype: 'rallygrid',
-                        store: risk_store,
-                        columnCfgs: [{
-                            dataIndex: 'FormattedID', text: 'Formatted ID'
-                        },{
-                            dataIndex: 'Name', text: 'Name', flex: 1
-                        }],
-                        showPagingToolbar: false,
-                        showRowActionsColumn: false
-                    }]
-                });
+                    risk_items.push({
+                        title: '<div class="' + this._getRiskCategoryClass(riskCategory) + '">' + riskCategory + ' (' + records.length + ')<\/div>',
+                        itemId: this._getRiskCategoryItemId(proj, riskCategory),
+                        header: {
+                            cls: this._getRiskCategoryClass(riskCategory)
+                        },
+                        items: [{
+                            xtype: 'rallygrid',
+                            store: risk_store,
+                            columnCfgs: [{
+                                dataIndex: 'FormattedID', text: 'Formatted ID'
+                            }, {
+                                dataIndex: 'Name', text: 'Name', flex: 1
+                            }],
+                            showPagingToolbar: false,
+                            showRowActionsColumn: false
+                        }]
+                    });
+                }
             }, this);
 
             var risk_pnl = Ext.create('Ext.panel.Panel',{
-                title: proj,
+                title: '<div class="head">' + proj + '</div>',
+                cls: 'x4-container-default x4-container fieldBucket',
+                header: {
+                    cls: 'x4-component x4-component-default head'
+                },
                 flex: 1,
                 itemId: this._getProjectItemId(proj),
                 defaults: {
@@ -327,7 +353,7 @@ Ext.define('CustomApp', {
             flex: 1,
             defaults: {
                 // applied to each contained panel
-                bodyStyle: 'padding:15px'
+                bodyStyle: 'padding:15px;border:0px'
             },
             layout: {
                 // layout-specific configs go here
@@ -340,6 +366,15 @@ Ext.define('CustomApp', {
         });
         ct_grid.add(pnl);
 
+    },
+    _getRiskCategoryClass: function(riskCategory){
+        var cls = '';
+        _.each(this.riskMapping, function(rm){
+            if (rm.name == riskCategory){
+                cls = rm.cls;
+            }
+        });
+        return cls;
     },
     _getRiskCategoryItemId: function(project, risk){
         return (project + '-' + risk).replace(/\s/g,'');

@@ -1,3 +1,31 @@
 .app {
-     /* Add app styles here */
+}
+.r1 {
+    background-color: #8DC63F!important;
+}
+.r2 {
+    background-color: #FAD200!important;
+}
+.r3 {
+    background-color:#F66349!important;
+}
+.done {
+    background-color: #888!important;
+}
+.notstarted {
+    background-color: #3f86c9!important;
+}
+.project {
+    background-color: #f6f6f6;
+    font-family: 'proximanovasemibold';
+}
+.x-accordion-item .x-accordion-hd {
+    background-color: #f6f6f6;
+    border-top-color: #f3f7fb;
+    padding: 4px 5px 5px 5px;
+}
+
+.x-panel-body-default {
+    border-width: 0px!important;
+    border-style: none;
 }
