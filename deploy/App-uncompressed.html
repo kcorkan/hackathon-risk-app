@@ -19,17 +19,20 @@
     modelType: 'PortfolioItem/Feature',
     modelObject: undefined,
     riskMapping: [{
-        name: 'R1',
-        color: '#FAD200',
-        threshhold: 10
+        name: 'R3',
+        color: '#FF0000'
     },{
         name: 'R2',
-        color: '#FF5400',
-        threshhold: 20
+        color: '#EE6C19'
     },{
-        name: 'R3',
-        color: '#F66349',
-        threshhold: null
+        name: 'R1',
+        color: '#FAD200'
+    },{
+        name: 'Not Started',
+        color: '#F6F6F6'
+    },{
+        name: 'Done',
+        color: '#3F86C9'
     }],
 
     launch: function() {
@@ -181,11 +184,17 @@
             flex: 2
         });
 
+        var colors = [];
+        _.each(this.riskMapping, function(rm){
+            colors.push(rm.color);
+        });
+
         var chart = ct.add({
             xtype: 'rallychart',
             itemId: 'rally-chart',
             chartConfig: this._getChartConfig(),
-            chartData: this._getChartData(aggregate_data)
+            chartData: this._getChartData(aggregate_data),
+            chartColors: colors
         });
 
     },
@@ -198,7 +207,7 @@
         _.each(this.riskMapping, function(riskMap){
             riskCategories.push(riskMap);
         });
-
+console.log('riskCategories', riskCategories);
         for (var j = 0; j < riskCategories.length; j++) {
             var series_obj = {name: riskCategories[j].name, data: [], color: riskCategories[j].color};
             for (var i = 0; i < categories.length; i++) {
@@ -206,13 +215,14 @@
             }
             series.push(series_obj);
         }
-        console.log('categories', categories, 'sereis', series);
+        console.log('categories', categories, 'series', series);
         return {
             categories: categories,
             series: series
         };
     },
     _getChartConfig: function(){
+
         return {
             chart: {
                 type: 'column'
@@ -255,9 +265,8 @@
     _buildGridView: function(aggregate_data){
         console.log('_buildGridView', aggregate_data);
 
-        var items = [],
-            me = this,
-            model = this.model;
+        var items = [];
+
         _.each(aggregate_data, function(obj, proj){
             var risk_items = [];
             _.each(obj, function(records, riskCategory){
@@ -319,29 +328,25 @@
         this.down('#display_box').add(pnl);
 
     },
-    _magicRenderer: function(field,value,meta_data,record){
-        var field_name = field.name || field.get('name');
-      //  var model = this.model;
-        // will fail fi field is not on the record
-        // (e.g., we pick accepted date, by are also showing features
-        try {
-            var template = Rally.ui.renderer.RendererFactory.getRenderTemplate(model.getField(field_name)) || "";
-            return template.apply(record.data);
-        } catch(e) {
-            return ".";
-        }
-    },
     _aggregateData: function(records){
-        var aggregate_data = {};
+        var aggregate_data = {},
+            risk_categories = [];
+
         console.log('child project hash', this.childProjectHash);
+
+        _.each(this.riskMapping, function(obj){
+            risk_categories.push(obj.name);
+        });
 
         _.each(records, function(rec){
             var proj = this._getProjectCategory(rec),
                 risk_category = this._getRiskCategory(rec, this.aggregateNumberField);
 
-            console.log('project', rec.get('Project').Name, proj, this.projectTree);
             if (!aggregate_data[proj]){
-                aggregate_data[proj] = {'R1': [], 'R2': [], 'R3': []};
+                aggregate_data[proj] = {};
+                _.each(risk_categories, function(rc){
+                    aggregate_data[proj][rc] = [];
+                });
             }
             aggregate_data[proj][risk_category].push(rec);
 
@@ -364,74 +369,112 @@
             var project_category_oid = project_hierarchy[current_project_idx + 1];
             return this.childProjectHash[project_category_oid];
     },
-    _isInProjectHierarchy: function(project, project_name){
-        var isInProjectHierarchy = false; 
-        console.log('_isprojecthierarchy', project.get('Name'), project_name);
-        if (project.get('Name') == project_name){
-            return true;  
-        }
-        
-        _.each(project.get('Children'), function(child){
-            if (this._isInProjectHierarchy(child, project_name)){
-                isInProjectHierarchy = true; 
-            }
-        }, this);
-        return isInProjectHierarchy;
-    },
     _getRiskCategory: function(rec, riskField){
-        var risk = rec.get(riskField) || 0;
+        //var risk = rec.get(riskField) || 0;
+        //
+        //if (risk <= 10){
+        //    return 'R1';
+        //}
+        //
+        //if (risk <= 20){
+        //    return 'R2';
+        //}
+        //return 'R3';
+//#  Inputs:
+//#    percentComplete (real)
+//#    startDate (days since the epoch or date type where
+//#      Tomorrow()-Today() = 1.0 (real))
+//#    endDate (same type as startDate)
+//#    asOfDate (same type as startDate) - Most often today. The naming of
+//#      this variable supports the idea that you may want to look
+//#      at the report as-of a certain date. All A2.0 reports will
+//#      support printing any report as-of a certain timestamp.
+//#    acceptanceStartDelay (real representing days) - delay before any
+//#      any movement off of 0% complete is expected
+//#    warningDelay (real representing days) - width of yellow
+//#    inProgress (boolean)
+//
+//#  Colors:
+//            #    Red - Late
+//#    Green - On Track
+//#    Yellow - At Risk
+//#    White - Not Started
+//#    Light Gray - Some Work Accepted Prior to Start Date
+//#    Gray - Complete
+//
+//# Input parameters for Portfolio Items are calculated as below.
+//# They could be different for Epics
+//            asOfDay = <today>
+//# percentDoneFieldName in the line below could be:
+//            #   PercentDoneByStoryCount or PercentDoneByStoryPlanEstimate
+//        percentComplete = 100 * PI[percentDoneFieldName]
 
-        if (risk <= 10){
-            return 'R1';
+
+        var startDate = new Date(),
+            percentComplete = 100 * rec.get('PercentDoneByStoryCount');
+        if (rec.get('ActualStartDate')) {
+            startDate = rec.get('ActualStartDate');
+        }
+        else if (rec.get('PlannedStartDate')) {
+            startDate = rec.get('PlannedStartDate');
         }
 
-        if (risk <= 20){
+        var endDate = new Date();
+        if (percentComplete == 100) {
+            if (rec.get('ActualEndDate')) {
+                endDate = rec.get('ActualEndDate');
+            }
+            else if (rec.get('PlannedEndDate')) {
+                endDate = rec.get('PlannedEndDate');
+            }
+        } else {
+            if (rec.get('PlannedEndDate')){
+                endDate = rec.get('PlannedEndDate');
+            }
+        }
+
+//# Defaults below currently hard-coded. Could later be provided by user.
+        var deltaDays = Rally.util.DateTime.getDifference(endDate,startDate,'day'),
+            acceptanceStartDelay = deltaDays * 0.2,
+            warningDelay = deltaDays * 0.2,
+            inProgress = percentComplete > 0;
+
+        if (new Date() < startDate){
+            return 'Not Started';
+        }
+
+        if (new Date() >= endDate){
+            if (percentComplete >= 100){
+                //return colors.gray;
+                return 'Done';
+            } else {
+                return 'R3';
+            }
+        }
+
+        var startDay = 0,
+            asOfDay = Rally.util.DateTime.getDifference(new Date(), startDate, 'day'),
+            endDay = deltaDays;
+
+
+        var redXIntercept = startDay + acceptanceStartDelay + warningDelay,
+            redSlope = 100.0 / (endDay - redXIntercept),
+            redYIntercept = -1.0 * redXIntercept * redSlope,
+            redThreshold = redSlope * asOfDay + redYIntercept;
+        if (percentComplete < redThreshold){
+            return 'R3';
+        }
+
+        var yellowXIntercept = startDay + acceptanceStartDelay,
+            yellowSlope = 100 / (endDay - yellowXIntercept),
+            yellowYIntercept = -1.0 * yellowXIntercept * yellowSlope,
+            yellowThreshold = yellowSlope * asOfDay + yellowYIntercept;
+
+        if (percentComplete < yellowThreshold){
             return 'R2';
         }
-        return 'R3';
-    },
-    _getProjectTree:function(records, currentProjectObjectID) {
-        console.log('_getProjectTree', records);
-        var projectHash = {};
-        _.each(records, function(rec){
-            projectHash[rec.get('ObjectID')] = rec;
-            rec.set('Children',[]);
-
-        });
-        var current_root = null;
-
-
-        var root_array = [];
-        Ext.Object.each(projectHash, function(oid,item){
-            console.log('project tree', oid, item.get('Name'), item, item.get('Parent'));
-            if ( !item.get('Children') ) { item.set('Children',[]); }
-            var direct_parent = item.get('Parent');
-            if (!direct_parent && !Ext.Array.contains(root_array,item)) {
-                root_array.push(item);
-            } else {
-
-                var parent_oid =  direct_parent.ObjectID || direct_parent.get('ObjectID');
-
-                if (!projectHash[parent_oid]) {
-                    if ( !Ext.Array.contains(root_array,item) ) {
-                        root_array.push(item);
-                    }
-                } else {
-                    var parent = projectHash[parent_oid];
-                    if ( !parent.get('Children') ) { parent.set('Children',[]); }
-                    var kids = parent.get('Children');
-                    kids.push(item);
-                    parent.set('Children',kids);
-                }
-            }
-            if (item.get('ObjectID') == currentProjectObjectID){
-                current_root = item;
-            }
-        },this);
-        console.log('getProjectTree', current_root);
-        return current_root;
+        return 'R1';
     }
-    
 });
 
 
