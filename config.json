@@ -1,0 +1,12 @@
+{
+   "name": "portfolio-item-risk-app",
+   "className": "CustomApp",
+   "server": "https://demo-west.rallydev.com",
+   "sdk": "2.0",
+   "javascript": [
+      "App.js"
+   ],
+   "css": [
+      "app.css"
+   ]
+}
